@@ -1,113 +1,189 @@
-import Image from 'next/image'
+"use client";
+import {useEffect, useState} from "react";
+import {
+    Abstraxion,
+    useAbstraxionAccount,
+    useAbstraxionSigningClient,
+} from "@burnt-labs/abstraxion";
+import {Button} from "@burnt-labs/ui";
+import Link from "next/link";
+import {Account} from "@cosmjs/stargate";
+import {InstantiateResult} from "@cosmjs/cosmwasm-stargate/build/signingcosmwasmclient";
 
-export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+export default function Page(): JSX.Element {
+    // Abstraxion hooks
+    const {data: account} = useAbstraxionAccount();
+    const {client} = useAbstraxionSigningClient();
+
+    // General state hooks
+    const [isOpen, setIsOpen] = useState(false);
+    const [isSubmittingTransaction, setSubmittingTransaction] = useState(false);
+
+    const [accountInfo, setAccountInfo] = useState<Account | undefined>(undefined);
+
+    // useState to store txResult
+    const [txResults, setTxResults] = useState<InstantiateResult[]>([]);
+
+    const getAccountInfo = async () => {
+        if (client && account?.bech32Address) {
+            const accountInfo = await client.getAccount(account?.bech32Address || "");
+            setAccountInfo(accountInfo);
+        } else {
+            setAccountInfo(undefined);
+        }
+    };
+
+    // useEffect to get the balance on load
+    useEffect(() => {
+        void getAccountInfo();
+    }, [client]);
+
+    const accountBlockExplorerUrl = `https://explorer.burnt.com/xion-testnet-1/account/${accountInfo?.address}`;
+
+    const submitTransaction = async (): Promise<void> => {
+        setSubmittingTransaction(true);
+        try {
+            if (!client) {
+                setIsOpen(true);
+                return;
+            }
+            const initMsg = {
+                metadata: {
+                    metadata: {
+                        name: "name",
+                        hub_url: "url",
+                        description: "description",
+                        tags: [],
+                        social_links: [],
+                        creator: account?.bech32Address,
+                        thumbnail_image_url: "https://fakeimg.pl/200/",
+                        banner_image_url: "https://fakeimg.pl/500/",
+                    },
+                },
+                ownable: {
+                    owner: account?.bech32Address,
+                },
+            };
+
+            const txResult = await client.instantiate(
+                account?.bech32Address || "",
+                1,
+                initMsg,
+                "my-hub",
+                {
+                    amount: [{amount: "0", denom: "uxion"}],
+                    gas: "500000",
+                },
+            );
+
+            setTxResults([...txResults, txResult]);
+        } catch (error) {
+            // eslint-disable-next-line no-console -- No UI exists yet to display errors
+            console.log(error);
+        } finally {
+            setSubmittingTransaction(false);
+        }
+    };
+
+
+    return (
+        <main className="m-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-4 p-4">
+            <h1 className="text-2xl font-bold tracking-tighter text-black dark:text-white">
+                ABSTRAXION
+            </h1>
+            <Button
+                fullWidth
+                onClick={() => {
+                    setIsOpen(true);
+                }}
+                structure="base"
+                theme="secondary"
+            >
+                {account ? (
+                    <div className="flex items-center justify-center">VIEW ACCOUNT</div>
+                ) : (
+                    "CONNECT"
+                )}
+            </Button>
+            <Abstraxion
+                isOpen={isOpen}
+                onClose={() => {
+                    setIsOpen(false);
+                }}
             />
-          </a>
-        </div>
-      </div>
+            {client ? (
+                <Button
+                    disabled={isSubmittingTransaction}
+                    fullWidth
+                    onClick={() => {
+                        void submitTransaction();
+                    }}
+                    structure="base"
+                    theme="secondary"
+                >
+                    {isSubmittingTransaction ? "SUBMITTING..." : "SUBMIT TEST TRANSACTION"}
+                </Button>
+            ) : null}
+            {accountInfo ? (
+                <div className="flex flex-col rounded border-2 border-black p-2 dark:border-white">
+                    <div className="mt-2">
+                        <p className="text-zinc-500">
+                            <span className="font-bold">Account Address:</span>
+                        </p>
+                        <p className="text-sm">{accountInfo.address}</p>
+                    </div>
+                    <div className="mt-2">
+                        <p className="text-zinc-500">
+                            <span className="font-bold">Account Number:</span>
+                        </p>
+                        <p className="text-sm">{accountInfo?.accountNumber}</p>
+                    </div>
+                    <div className="mt-2">
+                        <Link
+                            className="text-black underline visited:text-purple-600 dark:text-white"
+                            href={accountBlockExplorerUrl}
+                            target="_blank"
+                        >
+                            View in Block Explorer
+                        </Link>
+                    </div>
+                </div>
+            ) : null}
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
+            <div className="w-full space-y-4">
+                <h2 className="text-2xl font-bold mb-4 dark:text-white">Transaction Results</h2>
 
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {txResults.map((txResult, index) => {
+                        const transactionBlockExplorerUrl = `https://explorer.burnt.com/xion-testnet-1/tx/${txResult.transactionHash}`;
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
+                        return (
+                            <div
+                                key={index}
+                                className="flex flex-col rounded border-2 dark:border-white p-2 space-y-2 bg-white dark:bg-gray-800 shadow dark:shadow-white"
+                            >
+                                <div>
+                                    <p className="font-bold dark:text-white">Transaction Hash:</p>
+                                    <p className="text-sm overflow-ellipsis overflow-hidden dark:text-gray-300">{txResult.transactionHash}</p>
+                                </div>
+                                <div>
+                                    <p className="font-bold dark:text-white">Block Height:</p>
+                                    <p className="text-sm dark:text-gray-300">{txResult.height}</p>
+                                </div>
+                                <div>
+                                    <Link
+                                        className="text-black underline visited:text-purple-600 dark:text-white"
+                                        href={transactionBlockExplorerUrl}
+                                        target="_blank"
+                                    >
+                                        View in Block Explorer
+                                    </Link>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </main>
+    );
 }
