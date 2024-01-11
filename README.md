@@ -6,8 +6,6 @@ __Goal:__ Integrate Abstraxion and Spheron SDK
 Uses the [Spheron Browser SDK](https://docs.spheron.network/sdk/browser/) and [Abstraxion library](https://socket.dev/npm/package/@burnt-labs/abstraxion).
 
 **Basic implementation**
-- Store Account address in IPFS
-- Store Account Number in IPFS
 - Store Transaction Hash in IPFS
 
 ## Getting Started
@@ -16,7 +14,7 @@ Uses the [Spheron Browser SDK](https://docs.spheron.network/sdk/browser/) and [A
 
 First, create a [Spheron Access Token](https://docs.spheron.network/rest-api/#creating-an-access-token)
 
-Then we will create a [Spheron upload token client](https://docs.spheron.network/sdk/browser/#server)
+Then we will create a [Spheron upload token server](https://docs.spheron.network/sdk/browser/#server)
 
 Create .env file:
 ```
