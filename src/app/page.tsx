@@ -9,6 +9,7 @@ import {Button} from "@burnt-labs/ui";
 import Link from "next/link";
 import {Account} from "@cosmjs/stargate";
 import {InstantiateResult} from "@cosmjs/cosmwasm-stargate/build/signingcosmwasmclient";
+import {upload} from "@spheron/browser-upload";
 
 export default function Page(): JSX.Element {
     // Abstraxion hooks
@@ -75,6 +76,31 @@ export default function Page(): JSX.Element {
                     gas: "500000",
                 },
             );
+
+            // get the temporary access token from the server
+            const response = await
+                fetch(`http://localhost:3001/uploadToken/test-bucket`);
+            const resJson = await response.json();
+            const token = resJson.uploadToken;
+            console.log(token);
+
+            let currentlyUploaded = 0;
+
+            const jsonToStoreInIPFS = {
+              transactionHash: txResult.transactionHash
+            };
+
+            const file: File = new File([JSON.stringify(jsonToStoreInIPFS)], 'transactionHash.json', {type: 'application/json'});
+            const files: File[] = [file];
+
+            const {uploadId, bucketId, protocolLink, dynamicLinks} =
+                await upload(files, {
+                    token,
+                    onChunkUploaded: (uploadedSize, totalSize) => {
+                        currentlyUploaded += uploadedSize;
+                        console.log(`Uploaded ${currentlyUploaded} of ${totalSize} Bytes.`);
+                    },
+                });
 
             setTxResults([...txResults, txResult]);
         } catch (error) {
